@@ -652,29 +652,27 @@ void north_last_mesh( const Router *r, const Flit *f,
         int cur = r->GetID();
         int dest = f->dest;
 
-        int c0 = cur % gK;
-        int c1 = cur / gK;
-        int d0 = dest % gK;
-        int d1 = dest / gK;
+        int cur_x = cur % gK;
+        int cur_y = cur / gK;
+        int dest_x = dest % gK;
+        int dest_y = dest / gK;
         
-        int xoff = d0 - c0;
-        int yoff = d1 - c1;
+        int xoffset = dest_x - cur_x;
+        int yoffset = dest_y - cur_y;
 
-        if (yoff < 0 && xoff < 0) {
+        if (yoffset < 0 && xoffset < 0) {
             out_port = (RandomInt(1))?WEST:SOUTH;
-        } else if (yoff < 0 && xoff > 0) {
+        } else if (yoffset < 0 && xoffset > 0) {
             out_port = (RandomInt(1))?EAST:SOUTH;
-        } else if (yoff < 0 && xoff == 0) {
+        } else if (yoffset < 0 && xoffset == 0) {
             out_port = SOUTH; 
-        } else if (yoff >= 0 && xoff < 0) {
+        } else if (yoffset >= 0 && xoffset < 0) {
             out_port = WEST; 
-        } else if (yoff >= 0 && xoff > 0) {
+        } else if (yoffset >= 0 && xoffset > 0) {
             out_port = EAST; 
         } else {
             out_port = NORTH; 
         } 
-        //} else if (yoff > 0 && xoff == 0) {
-        //    out_port = NORTH; 
 
 
 
