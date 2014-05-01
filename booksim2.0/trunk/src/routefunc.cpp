@@ -539,7 +539,17 @@ void xy_yx_mesh( const Router *r, const Flit *f,
 
 //
 // End Balfour-Schultz
-//=============================================================
+
+//====================================================================
+// 
+// Author : Yun Wang 6715141
+//
+// Function name : XY_Algorithm_mesh
+//
+// function description : xy routing algorithm implementation. 
+//
+//                        deterministic routing algorithm
+//====================================================================
 void XY_Algorithm_mesh( const Router *r, const Flit *f, 
         int in_channel, OutputSet *outputs, bool inject )
 {
@@ -597,8 +607,18 @@ void XY_Algorithm_mesh( const Router *r, const Flit *f,
 
 }
 
-void odd_even_mesh( const Router *r, const Flit *f, 
-        int in_channel, OutputSet *outputs, bool inject )
+//====================================================================
+// 
+// Author : Yun Wang 6715141
+//
+// Function name : north_last_mesh
+//
+// function description : north last routing algorithm implementation. 
+//
+//                        partially adaptive routing algorithm
+//====================================================================
+void north_last_mesh( const Router *r, const Flit *f, 
+  int in_channel, OutputSet *outputs, bool inject )
 {
     int vcBegin = 0, vcEnd = gNumVCs-1;
     if ( f->type == Flit::READ_REQUEST ) {
@@ -629,56 +649,35 @@ void odd_even_mesh( const Router *r, const Flit *f,
 
     } else {
 
-        vector<int> avail;
-
         int cur = r->GetID();
         int dest = f->dest;
-        int src = f->src;
 
         int c0 = cur % gK;
         int c1 = cur / gK;
         int d0 = dest % gK;
         int d1 = dest / gK;
-        int s0 = src % gK;
-        int s1 = src / gK;
+        
+        int xoff = d0 - c0;
+        int yoff = d1 - c1;
 
-        int e0 = d0 - c0;
-        int e1 = d1 - c1;
-
-        if (e0 == 0) {
-            if (e1 > 0) {
-                avail.push_back(NORTH);
-            } else {
-                avail.push_back(SOUTH);
-            }
+        if (yoff < 0 && xoff < 0) {
+            out_port = (RandomInt(1))?WEST:SOUTH;
+        } else if (yoff < 0 && xoff > 0) {
+            out_port = (RandomInt(1))?EAST:SOUTH;
+        } else if (yoff < 0 && xoff == 0) {
+            out_port = SOUTH; 
+        } else if (yoff >= 0 && xoff < 0) {
+            out_port = WEST; 
+        } else if (yoff >= 0 && xoff > 0) {
+            out_port = EAST; 
         } else {
-            if (e0 > 0) {
-                if (e1 == 0) {
-                    avail.push_back(EAST);
-                } else {
-                    if (c0%2 != 0 || c0 == s0) {
-                        if (e1 > 0) {
-                            avail.push_back(NORTH);
-                        } else {
-                            avail.push_back(SOUTH);
-                        }
-                    }
-                    if (d0%2 != 0 || e0 != 1) {
-                        avail.push_back(EAST);
-                    }
-                }
-            } else {
-                avail.push_back(WEST);
-                if (c0%2 == 0) {
-                    if (e1 > 0) {
-                        avail.push_back(NORTH);
-                    } else {
-                        avail.push_back(SOUTH);
-                    }
-                }
-            } 
-        }
-        out_port = avail[rand()%avail.size()];
+            out_port = NORTH; 
+        } 
+        //} else if (yoff > 0 && xoff == 0) {
+        //    out_port = NORTH; 
+
+
+
     }
 
     outputs->Clear();
@@ -687,6 +686,74 @@ void odd_even_mesh( const Router *r, const Flit *f,
 
 }
 
+//====================================================================
+// 
+// Author : Yun Wang 6715141
+//
+// Function name : dy_xy_mesh
+//
+// function description : dy_xy routing algorithm implementation. 
+//
+//                        fully adaptive routing algorithm
+//====================================================================
+void dy_xy_mesh( const Router *r, const Flit *f, 
+  int in_channel, OutputSet *outputs, bool inject )
+{
+    int vcBegin = 0, vcEnd = gNumVCs-1;
+    if ( f->type == Flit::READ_REQUEST ) {
+        vcBegin = gReadReqBeginVC;
+        vcEnd = gReadReqEndVC;
+    } else if ( f->type == Flit::WRITE_REQUEST ) {
+        vcBegin = gWriteReqBeginVC;
+        vcEnd = gWriteReqEndVC;
+    } else if ( f->type ==  Flit::READ_REPLY ) {
+        vcBegin = gReadReplyBeginVC;
+        vcEnd = gReadReplyEndVC;
+    } else if ( f->type ==  Flit::WRITE_REPLY ) {
+        vcBegin = gWriteReplyBeginVC;
+        vcEnd = gWriteReplyEndVC;
+    }
+    assert(((f->vc >= vcBegin) && (f->vc <= vcEnd)) || (inject && (f->vc < 0)));
+
+    int out_port;
+
+    if(inject) {
+
+        out_port = -1;
+
+    } else if(r->GetID() == f->dest) {
+
+        // at destination router, we don't need to separate VCs by dim order
+        out_port = 2*gN;
+
+    } else {
+
+        int cur = r->GetID();
+        int dest = f->dest;
+
+        int cur_x = cur % gK;
+        int cur_y = cur / gK;
+        int dest_x = dest % gK;
+        int dest_y = dest / gK;
+
+        int out1, out2;
+
+        if (cur_x == dest_x) {
+            out_port = (cur_y < dest_y) ? NORTH : SOUTH;
+        } else if (cur_y == dest_y) {
+            out_port = (cur_x < dest_x) ? EAST : WEST;
+        } else {
+            out1 = (cur_y < dest_y) ? NORTH : SOUTH;
+            out2 =  (cur_x < dest_x) ? EAST : WEST;
+            out_port = (r->GetUsedCredit(out1) > r->GetUsedCredit(out2)) ? out2 : out1;
+        }
+    }
+
+    outputs->Clear();
+
+    outputs->AddRange( out_port , vcBegin, vcEnd );
+
+}
 
 
 //=============================================================
@@ -2126,8 +2193,11 @@ void min_adapt_torus( const Router *r, const Flit *f, int in_channel, OutputSet 
         // ===================================================
 
         // Yun Wang
-        gRoutingFunctionMap["odd_even_mesh"]          = &odd_even_mesh;
         gRoutingFunctionMap["XY_Algorithm_mesh"]          = &XY_Algorithm_mesh;
+        // Yun Wang
+        gRoutingFunctionMap["north_last_mesh"]          = &north_last_mesh;
+        // Yun Wang
+        gRoutingFunctionMap["dy_xy_mesh"]          = &dy_xy_mesh;
         // Yun Wang
 
 
